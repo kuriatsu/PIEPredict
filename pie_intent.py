@@ -233,6 +233,7 @@ class PIEIntent(object):
 
         sequences = []
         i = -1
+
         for seq, pid in zip(img_sequences, ped_ids):
             i += 1
             update_progress(i / len(img_sequences))
@@ -405,7 +406,7 @@ class PIEIntent(object):
         self.context_model = vgg16.VGG16(input_shape=(224, 224, 3),
                                          include_top=False,
                                          weights='imagenet')                                                
-
+        print("get_test_data images{}, bboxes{}, ped_ids{}".format(len(images), len(bboxes), ped_ids))
         test_img = self.load_images_and_process(images,
                                                 bboxes,
                                                 ped_ids,
@@ -414,6 +415,7 @@ class PIEIntent(object):
                                                                         data_type='features_context_pad_resize',  # images
                                                                         model_name='vgg16_none',
                                                                         data_subset='test'))
+
         output = output[:, 0]
         return ([test_img, decoder_input], output)
 
@@ -646,7 +648,7 @@ class PIEIntent(object):
                    data_test,
                    data_opts='',
                    model_path='',
-                   visualize=False):
+                   visualize=True):
             with open(os.path.join(model_path, 'configs.pkl'), 'rb') as fid:
                 try:
                     configs = pickle.load(fid)
@@ -678,37 +680,51 @@ class PIEIntent(object):
             num_samples = len(data_test['image'])
 
             vis_results = []
-
-            for i in range(0, len(data_test['image']), 100):
-
+            chunk_ped_num = 1
+            print("len of data test {}".format(num_samples))
+            for i in range(197, len(data_test['image']), 1):
+            # for i in range(0, len(data_test['image']), 1):
+                print(i, num_samples)
                 data_test_chunk = {}
-                data_test_chunk['intention_binary'] = data_test['intention_binary'][i:min(i+100, num_samples)]
-                data_test_chunk['image'] = data_test['image'][i:min(i+100,num_samples)]
-                data_test_chunk['ped_id'] = data_test['ped_id'][i:min(i+100,num_samples)]
-                data_test_chunk['intention_prob'] = data_test['intention_prob'][i:min(i+100,num_samples)]
-                data_test_chunk['bbox'] = data_test['bbox'][i:min(i+100,num_samples)]
+                data_test_chunk['intention_binary'] = data_test['intention_binary'][i:min(i+chunk_ped_num, num_samples)]
+                for row1 in range(0,len(data_test_chunk['intention_binary'])):
+                    for row2 in range(0, len(data_test_chunk['intention_binary'][row1])):
+                        data_test_chunk['intention_binary'][row1][row2] = 0
+                data_test_chunk['image'] = data_test['image'][i:min(i+chunk_ped_num,num_samples)]
+                data_test_chunk['ped_id'] = data_test['ped_id'][i:min(i+chunk_ped_num,num_samples)]
+                data_test_chunk['intention_prob'] = data_test['intention_prob'][i:min(i+chunk_ped_num,num_samples)]
+                for row1 in range(0,len(data_test_chunk['intention_prob'])):
+                    for row2 in range(0, len(data_test_chunk['intention_prob'][row1])):
+                        data_test_chunk['intention_prob'][row1][row2] = 0.0
+                # data_test_chunk['intention_prob'] = [0.0] * min(i+100,num_samples)
+                data_test_chunk['bbox'] = data_test['bbox'][i:min(i+chunk_ped_num,num_samples)]
 
-                test_data_chunk, test_target_data_chunk = self.get_test_data(data_test_chunk,
+                try:
+                    test_data_chunk, test_target_data_chunk = self.get_test_data(data_test_chunk,
                                                                                     train_params,
                                                                                     self._sequence_length,
                                                                                     overlap)
+                except Exception as e:
+                    print(e)
+                    continue
 
                 tracks, images_chunk, bboxes_chunk, ped_ids_chunk = self.get_tracks(data_test_chunk,
                                                                                            train_params['data_type'],
                                                                                            self._sequence_length,
                                                                                            overlap)
 
-
                 test_results_chunk = test_model.predict(test_data_chunk,
+                                                        # batch_size=256,
                                                         batch_size=train_params['batch_size'],
                                                         verbose=1)
 
-                test_target_data.extend(test_target_data_chunk)
-                test_results.extend(test_results_chunk)
-                images.extend(images_chunk)
-                ped_ids.extend(ped_ids_chunk)
-                bboxes.extend(bboxes_chunk)
-                
+                # test_target_data.extend(test_target_data_chunk)
+                # test_results.extend(test_results_chunk)
+                # images.extend(images_chunk)
+                # ped_ids.extend(ped_ids_chunk)
+                # bboxes.extend(bboxes_chunk)
+                print('result', [ped_ids_chunk[:], test_results_chunk[:]])
+
                 i = -1
                 for imp, box, ped in zip(images_chunk, bboxes_chunk, ped_ids_chunk):
                     i+=1
@@ -718,9 +734,8 @@ class PIEIntent(object):
                                         'res': test_results_chunk[i][0],
                                         'target': test_target_data_chunk[i]})
 
-
-            acc = accuracy_score(test_target_data, np.round(test_results))
-            f1 = f1_score(test_target_data, np.round(test_results))
+            # acc = accuracy_score(test_target_data, np.round(test_results))
+            # f1 = f1_score(test_target_data, np.round(test_results))
 
             save_results_path = os.path.join(model_path, 'ped_intents.pkl')
             if not os.path.exists(save_results_path):
@@ -730,4 +745,4 @@ class PIEIntent(object):
                            'gt': test_target_data}
                 with open(save_results_path, 'wb') as fid:
                     pickle.dump(results, fid, pickle.HIGHEST_PROTOCOL)
-            return acc, f1
+            # return acc, f1

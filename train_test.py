@@ -155,13 +155,13 @@ def train_intent(train_test=1):
         if saved_files_path == '':
             saved_files_path = pretrained_model_path
         beh_seq_test = imdb.generate_data_trajectory_sequence('test', **data_opts)
+
         acc, f1 = t.test_chunk(beh_seq_test, data_opts, saved_files_path, False)
         
-        t = PrettyTable(['Acc', 'F1'])
-        t.title = 'Intention model (local_context + bbox)'
-        t.add_row([acc, f1])
+        # t = PrettyTable(['Acc', 'F1'])
+        # t.title = 'Intention model (local_context + bbox)'
+        # t.add_row([acc, f1])
         
-        print(t)
 
         K.clear_session()
         tf.reset_default_graph()
