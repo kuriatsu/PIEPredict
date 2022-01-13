@@ -406,7 +406,7 @@ class PIEIntent(object):
         self.context_model = vgg16.VGG16(input_shape=(224, 224, 3),
                                          include_top=False,
                                          weights='imagenet')                                                
-        print("get_test_data images{}, bboxes{}, ped_ids{}".format(len(images), len(bboxes), ped_ids))
+        # print("get_test_data images{}, bboxes{}, ped_ids{}".format(len(images), len(bboxes), ped_ids))
         test_img = self.load_images_and_process(images,
                                                 bboxes,
                                                 ped_ids,
@@ -681,10 +681,11 @@ class PIEIntent(object):
 
             vis_results = []
             chunk_ped_num = 1
-            print("len of data test {}".format(num_samples))
-            for i in range(197, len(data_test['image']), 1):
+            print("data_test len", len(data_test['image']))
+            chunk_start = 151
+            chunk_end = len(data_test['image'])
+            for i in range(chunk_start, chunk_end, 1):
             # for i in range(0, len(data_test['image']), 1):
-                print(i, num_samples)
                 data_test_chunk = {}
                 data_test_chunk['intention_binary'] = data_test['intention_binary'][i:min(i+chunk_ped_num, num_samples)]
                 for row1 in range(0,len(data_test_chunk['intention_binary'])):
@@ -718,12 +719,12 @@ class PIEIntent(object):
                                                         batch_size=train_params['batch_size'],
                                                         verbose=1)
 
-                # test_target_data.extend(test_target_data_chunk)
-                # test_results.extend(test_results_chunk)
-                # images.extend(images_chunk)
-                # ped_ids.extend(ped_ids_chunk)
-                # bboxes.extend(bboxes_chunk)
-                print('result', [ped_ids_chunk[:], test_results_chunk[:]])
+                test_target_data.extend(test_target_data_chunk)
+                test_results.extend(test_results_chunk)
+                images.extend(images_chunk)
+                ped_ids.extend(ped_ids_chunk)
+                bboxes.extend(bboxes_chunk)
+                # print('result', test_results_chunk[:])
 
                 i = -1
                 for imp, box, ped in zip(images_chunk, bboxes_chunk, ped_ids_chunk):
@@ -734,8 +735,12 @@ class PIEIntent(object):
                                         'res': test_results_chunk[i][0],
                                         'target': test_target_data_chunk[i]})
 
-            # acc = accuracy_score(test_target_data, np.round(test_results))
-            # f1 = f1_score(test_target_data, np.round(test_results))
+            result_path = os.path.join(model_path, "result_{}-{}.pkl".format(chunk_start, chunk_end))
+            with open(result_path, 'wb') as f_res:
+                pickle.dump(vis_results, f_res)
+
+            acc = accuracy_score(test_target_data, np.round(test_results))
+            f1 = f1_score(test_target_data, np.round(test_results))
 
             save_results_path = os.path.join(model_path, 'ped_intents.pkl')
             if not os.path.exists(save_results_path):
@@ -745,4 +750,4 @@ class PIEIntent(object):
                            'gt': test_target_data}
                 with open(save_results_path, 'wb') as fid:
                     pickle.dump(results, fid, pickle.HIGHEST_PROTOCOL)
-            # return acc, f1
+            return acc, f1

@@ -158,9 +158,9 @@ def train_intent(train_test=1):
 
         acc, f1 = t.test_chunk(beh_seq_test, data_opts, saved_files_path, False)
         
-        # t = PrettyTable(['Acc', 'F1'])
-        # t.title = 'Intention model (local_context + bbox)'
-        # t.add_row([acc, f1])
+        t = PrettyTable(['Acc', 'F1'])
+        t.title = 'Intention model (local_context + bbox)'
+        t.add_row([acc, f1])
         
 
         K.clear_session()
